@@ -1,0 +1,533 @@
+---
+title: "Fest_Survey_Project"
+author: "Matthew Blake"
+date: "11/14/2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(ggplot2)
+library(dplyr)
+```
+
+
+```{r, warning=FALSE, message=FALSE}
+SongVariables <- read.csv("~/Fest_Survey_Project/SongVariables-tent.csv") %>% dplyr::select(2:10) %>% filter(row_number() > 1)
+SongVariables %>% view()
+
+
+Fest <- read.csv("~/Fest_Survey_Project/Fest151.csv") %>% FestClean()
+
+Full_Fest <-Fest %>%
+  mutate(index = row_number()) %>%
+  pivot_longer(cols = c(6:33, 37:57, 61:80), names_to = "Song", values_to = "Rating") %>%
+  left_join(SongVariables) %>%
+  dplyr::select(index, Song, Rating, Year, 3:5, 7:8, 10:11, 18:22, Underrepresented, IntendedMajor, StOlafComposer, Timestamp, Comment2021, Comment2022, Comment2023, FEEDBACK) %>%
+mutate(Rating = as.numeric(Rating, na.rm = TRUE),
+       SoloEnsemble = dplyr::recode(SoloEnsemble,
+  "CAN" = "Cantorei",
+  "MNT" = "Manitou Singers",
+  "VIK" = "Viking Chorus",
+  "CHA" = "Chapel Choir",
+  "OLE"  = "St. Olaf Choir",
+  "ORCH" = "St. Olaf Orchestra"
+),
+       SoloChoir = ifelse(Year == 21, SoloEnsemble == Choir21 & SoloEnsemble != "", 
+                   ifelse(Year == 22, SoloEnsemble == Choir22 & SoloEnsemble != "", 
+                          ifelse(Year == 23, SoloEnsemble == Choir23 & SoloEnsemble != "", ""))),
+EnsembleConductor = ifelse( (Conductor == "JBOBB" & ((Choir21 == "Cantorei" & Year == 21) |
+                                                              (Choir22 == "Cantorei" & Year == 22) |
+                                                              (Choir23 == "Cantorei" & Year == 23))) | 
+                                      (Conductor == "ANTON" & ((Choir21 == "St. Olaf Choir" & Year == 21) |
+                                                              (Choir22 == "St. Olaf Choir" & Year == 22) |
+                                                              (Choir23 == "St. Olaf Choir")) & Year == 23) |
+                                       (Conductor == "THEREES" & ((Choir21 == "Manitou Singers" & Year == 21) |
+                                                              (Choir22 == "Manitou Singers" & Year == 22) |
+                                                              (Choir23 == "Manitou Singers" & Year == 23))) |
+                                       ((Conductor == "TESFA" | Conductor == "ADAM") & 
+                                                              ((Choir21 == "Chapel Choir" & Year == 21) |
+                                                              (Choir22 == "Chapel Choir" & Year == 22) |
+                                                              (Choir23 == "Chapel Choir" & Year == 23) | 
+                                                              (Choir21 == "Viking Chorus" & Year == 21) |
+                                                              (Choir22 == "Viking Chorus" & Year == 22) |
+                                                              (Choir23 == "Viking Chorus" & Year == 23))) |
+                                       ((Conductor == "SMA" | Conductor == "PARK") & 
+                                                              ((Choir21 == "St. Olaf Orchestra" & Year == 21) |
+                                                              (Choir22 == "St. Olaf Orchestra"  & Year == 22)|
+                                                              (Choir23 == "St. Olaf Orchestra" & Year == 23))), 1, 0), 
+         ChoirYear = ifelse(Year == 21, Choir21, ifelse(
+                            Year == 22, Choir22, ifelse(
+                            Year == 23, Choir23, NA
+                            ))), 
+           VoiceYear = ifelse(Year == 21, Voice21, ifelse(
+                            Year == 22, Voice22, ifelse(
+                            Year == 23, Voice23, NA
+                            )))) %>%
+  filter(Rating >= 0)
+
+MusicColors <- c("Chapel Choir" = "#A60A3D", "Viking Chorus" = "#0000cd", "Manitou Singers" = "#3c824e", "Cantorei" = "#E2DFD2", "St. Olaf Choir" = "34B006E", "St. Olaf Orchestra" = "#ae7305")
+
+
+Full_Fest 
+```
+
+```{r}
+#Song means, SD, and counts
+Full_Fest %>%
+  group_by(Song) %>%
+  summarise(avg = mean(Rating), sd = sd(Rating), n()) %>%
+  arrange(desc(avg))
+
+#Centered song means: For each student, the ratings of that student are centered, so that differences between students who rate all songs highly or lowly is adjusted for. 
+Full_Fest %>%
+  group_by(index) %>%
+  summarise(AvgRate = mean(Rating)) %>%
+  right_join(Full_Fest) %>%
+  mutate(Cent_Rate = Rating - AvgRate) %>%
+  group_by(Song) %>%
+  summarise(n = n(), SongMean = mean(Rating), SongCentMean = mean(Cent_Rate), sd = sd(Rating)) %>% 
+  arrange(desc(SongCentMean)) %>%
+  right_join(SongVariables %>%  filter(IsSong == 1) %>% dplyr::select(Song, Year), by = "Song") %>% 
+  filter(Year == 23) %>% kable()
+
+SongVariables %>%  filter(IsSong == 1) %>% dplyr::select(Song, Year)
+```
+
+
+```{r}
+#Summary of average rating by year
+
+Full_Fest %>%
+  group_by(Year) %>%
+  summarise(mean(Rating))
+
+#A Cappella averages
+Full_Fest %>%
+  mutate(ACapella = dplyr::recode(ACapella, `0` = "Accompanied", `1` = "A Capella", `2` = "Orchestral Solo")) %>% 
+  group_by(ACapella) %>%
+  summarise(Rating = mean(Rating)) %>%
+  ggplot(aes(x = ACapella, y = Rating, fill = ACapella)) + 
+  geom_col() + 
+  scale_fill_manual(values = c("A Capella" = "Red", "Accompanied" = "Blue", "Orchestral Solo" = "Tan")) + 
+  labs(fill = "Song Type", 
+       x = "Song Type", 
+       y = "Average Rating", 
+       title = "Song Ratings by A Capella Status", 
+       subtitle = "How do students like a capella songs, compared to accompanied songs and the orchestra solo pieces?")
+
+  t.test((Full_Fest %>% filter(ACapella == 0))$Rating, (Full_Fest %>% filter(ACapella == 1))$Rating)
+  
+#Year Averages
+  Full_Fest %>%
+  group_by(Year) %>%
+  summarise(Rating = mean(Rating), n = n()) 
+  
+  #Ensemble Averages
+  Full_Fest %>%
+    mutate(ChoirAll = ifelse(Year == 21 , Choir21, 
+                           ifelse(Year == 22, Choir22, 
+                                  ifelse(Year == 23, Choir23, "")))) %>%
+  filter(ChoirAll != "" & ChoirAll != "Other (Audience member)") %>%
+  group_by(ChoirAll) %>%
+  summarise(Rating = mean(Rating))
+  
+  Fest %>%
+    count()
+```
+
+Specific Averages:
+```{r}
+#Underrepresented Averages
+  Full_Fest %>%
+  group_by(Underrepresented) %>%
+  summarise(Rating = mean(Rating)) 
+  
+   t.test((Full_Fest %>% filter(Underrepresented == 0))$Rating, (Full_Fest %>% filter(Underrepresented == 1))$Rating)
+  
+  #St. Olaf Composer averages
+   Full_Fest %>%
+  group_by(StOlafComposer) %>%
+  summarise(Rating = mean(Rating))
+   
+    t.test((Full_Fest %>% filter(StOlafComposer == 0))$Rating, (Full_Fest %>% filter(StOlafComposer == 1))$Rating)
+    
+    Full_Fest %>%
+     group_by(SongCategory, StOlafComposer) %>%
+     summarise(rating = mean(Rating)) %>%
+     ggplot() +  
+     geom_col(aes(x = SongCategory, y = rating, fill = as.factor(StOlafComposer)), position = "dodge") + 
+      labs(fill = "St. Olaf Composer",
+       x = "Song Category",
+       y = "Average Rating",
+       title = "Music Preferences by Song Category and St. Olaf Composer",
+       )
+    
+    
+   #Aggregate Average (Not useful)
+   Full_Fest %>%
+     group_by(StOlafComposer, Underrepresented, ACapella) %>%
+     summarise(Rating = mean(Rating), n())
+   
+   #Voice Parts
+   
+   
+   Full_Fest$VoiceYear
+   chisq.test(table(Full_Fest$VoiceYear, Full_Fest$Rating))
+  
+   
+    
+as.data.frame(table(Full_Fest$VoiceYear, Full_Fest$Rating)) %>%
+  pivot_wider(values_from = Freq, names_from = Var2) %>% 
+  mutate(n = `0` + `1`+`2`+`3`+`4`+`5`+`6`,
+        mean_rating = (1*`1` + 2*`2` + 3*`3` + 4*`4` + 5*`5` + 6*`6`) / n, 
+        VoicePart = Var1)%>%
+  filter(VoicePart != "") %>%
+  ggplot() + 
+  geom_col(aes(x = VoicePart, y = mean_rating, fill = VoicePart)) + 
+  scale_fill_manual(values = c("Soprano 1" = "Red", "Soprano 2" = "Orange", "Alto 1" = "yellow2", "Alto 2" = "olivedrab3", "Tenor 1" = "turquoise", "Tenor 2" = "skyblue2", "Bass 1" = "navyblue", "Bass 2" = "purple3", "N/A" = "tan")) + 
+  labs(fill = "Voice Part", 
+       x = "Voice Part", 
+       y = "Average Rating", 
+       title = "Song Ratings by Voice Part", 
+       subtitle = "Student song opinions, by voice part")
+  
+   
+```
+
+
+Linear Models:
+```{r}
+summary(lm(Rating ~ StOlafComposer + ACapella + Underrepresented + Year + SongCategory + ChoirYear + VoiceYear + Conductor + FirstFest, data = Full_Fest))
+   
+   summary(glm(Rating > 3 ~ StOlafComposer + ACapella + Underrepresented + Year + SongCategory + ChoirYear + VoiceYear, data = Full_Fest, family = binomial))
+   
+  # Probably going to run three separate regressions for the three separate years
+   
+      #2021
+   summary(lm(Rating ~ Song + StOlafComposer + ACapella + Underrepresented + Year + SongCategory + Choir21 + SoloChoir + Voice21, data = Full_Fest %>% filter(Year == 21)))
+   
+   summary(glm(Rating > 3 ~ Song + StOlafComposer + ACapella + Underrepresented + Year + SongCategory + Choir21 + Voice21 + SoloChoir, data = Full_Fest %>% filter(Year == 21), family = binomial))
+   
+   #2022
+   summary(lm(Rating ~ Song + StOlafComposer + ACapella + Underrepresented + Year + SongCategory + Choir22 + SoloChoir + Voice21, data = Full_Fest %>% filter(Year == 22)))
+   
+   summary(glm(Rating > 3 ~ Song + StOlafComposer + ACapella + Underrepresented + Year + SongCategory + Choir21 + Voice21 + SoloChoir, data = Full_Fest %>% filter(Year == 22), family = binomial))
+   
+   #2023
+   summary(lm(Rating ~ Song + StOlafComposer + ACapella + Underrepresented + Year + SongCategory + Choir23 + SoloChoir + Voice23, data = Full_Fest %>% filter(Year == 23)))
+   
+   summary(glm(Rating > 3 ~ Song + StOlafComposer + ACapella + Underrepresented + Year + SongCategory + Choir23 + Voice23 + SoloChoir, data = Full_Fest %>% filter(Year == 23), family = binomial))
+   
+   
+   #Model Coefficients
+   
+    lin21 <-(lm(Rating ~ Song + StOlafComposer + ACapella + Underrepresented + Year + SongCategory + Choir21 + SoloChoir + Voice21, data = Full_Fest %>% filter(Year == 21)))$coef %>% as.data.frame %>% rownames_to_column(var = "Variable") %>% filter(!is.na(.))%>% rename("Lin2021" = ".") %>% mutate(Lin2021Sig = (as.data.frame (summary(lm(Rating ~ Song + StOlafComposer + ACapella + Underrepresented + Year + SongCategory + Choir21 + SoloChoir + Voice21, data = Full_Fest %>% filter(Year == 21))) %>% coef()))$`Pr(>|t|)`)
+   
+   lin22 <-(lm(Rating ~ Song + StOlafComposer + ACapella + Underrepresented + Year + SongCategory + Choir22 + SoloChoir + Voice22, data = Full_Fest %>% filter(Year == 22)))$coef %>% as.data.frame %>% rownames_to_column(var = "Variable") %>% filter(!is.na(.))%>% rename("Lin2022" = ".") %>% mutate(Lin2022Sig = (as.data.frame (summary(lm(Rating ~ Song + StOlafComposer + ACapella + Underrepresented + Year + SongCategory + Choir22 + SoloChoir + Voice22, data = Full_Fest %>% filter(Year == 22))) %>% coef()))$`Pr(>|t|)`)
+   
+    lin23 <-(lm(Rating ~ Song + StOlafComposer + ACapella + Underrepresented + Year + SongCategory + Choir23 + SoloChoir + Voice23, data = Full_Fest %>% filter(Year == 23)))$coef %>% as.data.frame %>% rownames_to_column(var = "Variable")%>% filter(!is.na(.)) %>% rename("Lin2023" = ".") %>% mutate(Lin2023Sig = (as.data.frame (summary(lm(Rating ~ Song + StOlafComposer + ACapella + Underrepresented + Year + SongCategory + Choir23 + SoloChoir + Voice23, data = Full_Fest %>% filter(Year == 23))) %>% coef()))$`Pr(>|t|)`)
+   
+  log23 <-(glm(Rating > 3 ~ Song + StOlafComposer + ACapella + Underrepresented + Year + SongCategory + Choir23 + SoloChoir + Voice23, data = Full_Fest %>% filter(Year == 23), family = binomial))$coef %>% as.data.frame %>% rownames_to_column(var = "Variable") %>% filter(!is.na(.))%>% rename("Log2023" = ".") %>% mutate(Log2023Sig = (as.data.frame (summary(glm(Rating > 3 ~ Song + StOlafComposer + ACapella + Underrepresented + Year + SongCategory + Choir23 + SoloChoir + Voice23, data = Full_Fest %>% filter(Year == 23), family = binomial)) %>% coef()))$`Pr(>|z|)`)
+   
+   log22 <-(glm(Rating > 3 ~ Song + StOlafComposer + ACapella + Underrepresented + Year + SongCategory + Choir22 + SoloChoir + Voice22, data = Full_Fest %>% filter(Year == 22), family = binomial))$coef %>% as.data.frame %>% rownames_to_column(var = "Variable") %>% filter(!is.na(.))%>% rename("Log2022" = ".") %>% mutate(Log2022Sig = (as.data.frame (summary(glm(Rating > 3 ~ Song + StOlafComposer + ACapella + Underrepresented + Year + SongCategory + Choir22 + SoloChoir + Voice22, data = Full_Fest %>% filter(Year == 22), family = binomial)) %>% coef()))$`Pr(>|z|)`)
+   
+   log21 <-(glm(Rating > 3 ~ Song + StOlafComposer + ACapella + Underrepresented + Year + SongCategory + Choir21 + Voice21 + SoloChoir, data = Full_Fest %>% filter(Year == 21), family = binomial))$coef %>% as.data.frame %>% rownames_to_column(var = "Variable")%>% filter(!is.na(.)) %>% rename("Log2021" = ".") %>% mutate(Log2021Sig = (as.data.frame (summary(glm(Rating > 3 ~ Song + StOlafComposer + ACapella + Underrepresented + Year + SongCategory + Choir21 + SoloChoir + Voice21, data = Full_Fest %>% filter(Year == 21), family = binomial))%>% coef()))$`Pr(>|z|)`)
+   
+  full_join(lin21, log21, by = "Variable") 
+  full_join(lin22, log22, by = "Variable") 
+  full_join(lin23, log23, by = "Variable")
+  
+ 
+(glm(Rating > 3 ~ Song + StOlafComposer + ACapella + Underrepresented + Year + SongCategory + Choir22 + Voice21 + SoloChoir, data = Full_Fest %>% filter(Year == 22), family = binomial))$coef %>% as.data.frame %>% rownames_to_column(var = "Variable") %>% filter(!is.na(.))%>% rename("Log2022" = ".") %>% mutate(Log2022Sig = (as.data.frame (summary(glm(Rating > 3 ~ Song + StOlafComposer + ACapella + Underrepresented + Year + SongCategory + Choir22 + SoloChoir + Voice22, data = Full_Fest %>% filter(Year == 22), family = binomial)) %>% coef()))$`Pr(>|z|)` )
+
+```
+
+Linear Models with StepAIC
+```{r}
+#StepAIC
+
+Full_Fest
+```
+
+
+```{r}
+# Solo Ensembles
+SoloChoirTrue  <-Full_Fest%>%
+filter(SoloChoir == TRUE)
+
+SoloChoirFalse  <-Full_Fest %>%
+filter(SoloChoir == FALSE)
+  #summarise(avg = mean(Rating), sd = sd(Rating), n = n()) 
+  t.test(SoloChoirTrue$Rating, SoloChoirFalse$Rating, alternative = "greater", mu = 0, paired = FALSE, var.equal = FALSE)
+  
+Full_Fest %>%
+  filter(SongCategory == "SOLO" | SongCategory == "ORCH") %>%
+  mutate(ChoirAll = ifelse(Year == 21 , Choir21, 
+                           ifelse(Year == 22, Choir22, 
+                                  ifelse(Year == 23, Choir23, "")))) %>%
+  filter(ChoirAll != "" & ChoirAll != "Other (Audience member)") %>%
+  group_by(ChoirAll, SoloChoir) %>%
+  summarise(n = n(), AvgRating = mean(Rating))%>%
+  ggplot(aes(x = ChoirAll, y = AvgRating,  fill = SoloChoir)) + 
+  geom_col(position = "dodge") + 
+  theme(axis.text.x = element_text(angle = 30))+ 
+  labs(fill = "Solo Selection",
+       x = "Ensemble",
+       y = "Average Rating",
+       title = "Song Ratings by Solo Piece",
+       subtitle = "Do musicians like their own solo pieces more than other ensembles'?")
+
+Full_Fest_Solos <-Full_Fest %>%
+  filter((SongCategory == "SOLO" | SongCategory == "ORCH" ) & ChoirYear != "") %>%
+  mutate(ChoirSoloSong = ifelse(SoloEnsemble == ChoirYear, "Own Solos", "Other Solos")) %>%
+  group_by(ChoirYear, ChoirSoloSong) %>%
+  summarise(rating = mean(Rating)) %>%
+ pivot_wider(names_from = ChoirSoloSong, values_from = rating)
+
+  t.test(Full_Fest_Solos$"Other Solos", Full_Fest_Solos$"Own Solos")
+
+```
+
+
+```{r}
+#Conductor Comparison
+
+Full_Fest %>%
+group_by(Conductor) %>%
+  summarise(rating = mean(Rating), sd = sd(Rating), n = n()) %>%
+  ggplot(aes(x = Conductor, y = rating, fill = Conductor)) +
+  geom_col() + 
+    scale_fill_manual(values = c("ADAM" = "#A60A3D", "ANTON" = "#4B006E", "JBOBB" = "#E2DFD2", "PARK" = "#ae7305", "SMA" = "black", "TESFA" = "#0000cd", "THEREES" = "#3c824e")) + 
+  labs(fill = "Conductor's Ensemble",
+       x = "Ensemble",
+       y = "Average Rating",
+       title = "Music Preferences by Conductor",
+       subtitle = "How are the songs conducted by each conductor generally viewed?") 
+
+```
+
+```{r}
+#Ensemble Conductor Preference
+Full_Fest_conductor_preference <-Full_Fest %>%
+  group_by(EnsembleConductor, ChoirYear) %>%
+  summarise(rating = mean(Rating)) %>%
+  mutate(EnsembleConductor = if_else(EnsembleConductor == 0, "Different", "Same")) %>%
+  filter(ChoirYear != "" & ChoirYear != "Other (Audience member)") 
+
+Full_Fest_conductor_preference%>%
+  ggplot() + 
+  geom_col(aes(x = ChoirYear, y = rating, fill = EnsembleConductor), position = "dodge") +
+theme(axis.text.x = element_text(angle = 20)) + 
+  labs(fill = "Conductor's Ensemble",
+       x = "Ensemble",
+       y = "Average Rating",
+       title = "Musician Preference by Conductor",
+       subtitle = "Do musicians prefer music conducted by their ensemble's conductors?")
+
+
+Full_Fest_conductor_preference2 <- Full_Fest_conductor_preference %>%
+pivot_wider(values_from = rating, names_from = EnsembleConductor, names_sep = ".")
+
+t.test(Full_Fest_conductor_preference2$Different, Full_Fest_conductor_preference$Same)
+  
+  
+```
+
+
+
+```{r}
+
+#Some number statistics
+as_tibble(sapply(first51_cleaned[,  c(6:33, 37:57, 61:80)], as.numeric))
+ 
+as.tibble(sapply(first51_cleaned[, c(6:33, 37:57, 61:80)], as.numeric)) %>%
+  gather(key = "Variable", value = "Value") %>%
+  group_by(Variable) %>%
+  summarise(
+    Count = sum(!is.na(Value)),
+    Mean = mean(Value, na.rm = TRUE),
+    SD = sd(Value, na.rm = TRUE)
+  ) %>%
+  arrange(desc(Mean)) %>%
+  view()
+
+#Numeric summary by song
+as.tibble(sapply(Fest[, c(6:33, 37:57, 61:80)], as.numeric)) %>%
+  gather(key = "Variable", value = "Value") %>%
+  group_by(Variable) %>%
+  summarise(
+    Count = sum(!is.na(Value)),
+    Mean = mean(Value, na.rm = TRUE),
+    SD = sd(Value, na.rm = TRUE)
+  ) %>%
+  arrange(desc(Mean)) %>%
+  view()
+ 
+ 
+view(namevec)
+```
+
+```{r}
+#digit_summary <-
+#This is a bar plot of the frequencies of the various number ratings, from F to S+. It shows a moderate left skew (though not as severe as it had been). 
+library(ggplot2) 
+library(dplyr)
+ Full_Fest %>%
+  mutate(Rating = factor(Rating), 
+         Year= factor(Year)) %>%
+  ggplot() +
+  geom_bar(aes(x = Rating, fill = Year), position = "dodge")
+ 
+  Full_Fest %>%
+  mutate(Rating = factor(Rating), 
+         Year= factor(Year)) %>%
+  ggplot(aes(x = Rating, fill = Year), position = "dodge") +
+  geom_bar()
+
+
+
+
+view(Full_Fest)
+```
+
+Fest Cleaning Code: 
+```{r}
+#Fest Clean Code
+
+grade_mapping <- c('S+' = 6, 'S' = 5, 'A' = 4, 'B' = 3, 'C' = 2, 'D' = 1, 'F' = 0)
+FestClean <- function(data) 
+  {data %>% 
+  mutate_all(~ifelse(. %in% names(grade_mapping), grade_mapping[.], .)) %>%
+  rename(FirstFest = 2, 
+         Choir21 = 3,
+         Voice21 = 4, 
+         Nimrod = 5, 
+         DeepUnboundedDarkness = 6, 
+         CarolAdvent = 7, 
+         GodisLove = 8,
+         MountofOlives = 9, 
+         Rachmoninov = 10,
+         LoHowARose = 11,
+         LlegaNavidad = 12, 
+         HolyChild = 13,
+         SilentNight = 14,
+         GodsLoveMadeVisible = 15, 
+         GoodChristianFriendsRejoice = 16, 
+         ChristusNatusEst = 17, 
+         TellOnMountain = 18,
+         LoveCameDown = 19, 
+         GodRestMerryGentlemen = 20,
+         InSilentNight = 21, 
+         MaryBoyChile = 22, 
+         Gloria2021 = 23, 
+         Past3Clock = 24, 
+         AngelsDance = 25, 
+         CarolForChoirs = 26,
+         AngelHeardHigh = 27, 
+         PraiseLord = 28,
+         LightDawns = 29,
+         LoveDivine = 30,
+         NuncDimittis = 31,
+         BeautSav2021 = 32,
+         Choir22 = 33,
+         Voice22 = 34,
+         OrchNoel = 35, 
+         HeartWorships = 36,
+         AwakeGreetMorn = 37,
+         AwakeHarp = 38,
+         SongofPeace = 39, 
+         KeepYourLamps = 40,
+         WillMakeWay = 41, 
+         DayPeace12 = 42,
+         EarthStrikeMusic = 43,
+         HodieChristus22 = 44,
+         LittleLightMine = 45,
+         CarolBells = 46,
+         SirChristemas = 47,
+         OvertureNutcracker = 48,
+         CarolofStranger = 49,
+         MidnightClear = 50, 
+         Psalm50 = 51, 
+         DonaNobisPacem = 52,
+         HarkHeraldAngels = 72,
+         StayWithUs = 53,
+         BeautSav2022 = 54,
+         Choir23 = 55,
+         Voice23 = 56,
+         Glorification = 57,
+         OHolyNight = 58,
+         DarkAwaitsDawn = 59,
+         JauchzetFrohlocket = 60,
+         InBleakMidwinter = 61,
+         LoveJoyComeYou = 62,
+         WelcomeWonders = 63,
+         FEEDBACK = 64,
+         HodieChristus23 = 65,
+         OMagnumMysterium = 66,
+         BeautSav2023 = 67,
+         RejoiceBelievers = 68,
+         LoveHasCome = 69,
+         ChristianFriends = 70,
+         JoytoWorld = 71,
+         IntendedMajor = 73, 
+         Score = 74,
+         Comment2021 = 75, 
+         Comment2022 = 76, 
+         Comment2023 = 77,
+         Gloria2023 = 78,
+         SummerInWinter = 79, 
+         CordeNatus = 80,
+         HallelujahNewbornKing = 81,
+         Rev_HodieChristus23 = 82,
+         Rev_Gloria2023 = 83,
+         Rev_SummerInWinter = 84,
+         Rev_CordeNatus = 85, 
+         Rev_HallelujahNewbornKing = 86,
+         BeThouMyVision = 87,
+         Rev_RejoiceBelievers = 88,
+         Rev_LoveHasCome = 89,
+         Rev_ChristianFriends = 90,
+         Rev_JoytoWorld = 91,
+         Rev_BeautSav2023 = 92,
+         OgoNiFumOluwa = 93,
+         Rev_LoveJoyComeYou = 94,
+         Rev_BeThouMyVision = 95,
+         Orch_LoHowARose = 96,
+         Winter_Night = 97) %>%
+  mutate(HodieChristus23 = ifelse(as.numeric(!is.na(HodieChristus23)), HodieChristus23, Rev_HodieChristus23), 
+          Gloria2023= ifelse(!is.na(as.numeric(Gloria2023)), Gloria2023, Rev_Gloria2023),
+         SummerInWinter = ifelse(!is.na(as.numeric(SummerInWinter)), SummerInWinter, Rev_SummerInWinter),
+         CordeNatus = ifelse(!is.na(as.numeric(CordeNatus)), CordeNatus, Rev_CordeNatus),
+          HallelujahNewbornKing= ifelse(!is.na(as.numeric(HallelujahNewbornKing)), HallelujahNewbornKing, Rev_HallelujahNewbornKing),
+          RejoiceBelievers= ifelse(!is.na(as.numeric(RejoiceBelievers)), RejoiceBelievers, Rev_RejoiceBelievers),
+         LoveHasCome= ifelse(!is.na(as.numeric(LoveHasCome)), LoveHasCome, Rev_LoveHasCome),
+         ChristianFriends= ifelse(!is.na(as.numeric(ChristianFriends)), ChristianFriends, Rev_ChristianFriends),
+         JoytoWorld= ifelse(!is.na(as.numeric(JoytoWorld)), JoytoWorld, Rev_JoytoWorld),
+         BeautSav2023= ifelse(!is.na(as.numeric(BeautSav2023)), BeautSav2023, Rev_BeautSav2023),
+         LoveJoyComeYou= ifelse(!is.na(as.numeric(LoveJoyComeYou)), LoveJoyComeYou, Rev_LoveJoyComeYou),
+         BeThouMyVision= ifelse(!is.na(as.numeric(BeThouMyVision)), BeThouMyVision, Rev_BeThouMyVision)) %>%
+  dplyr::select( -Rev_HodieChristus23, -Rev_Gloria2023, -Rev_SummerInWinter, -Rev_CordeNatus,
+         -Rev_HallelujahNewbornKing, -Rev_RejoiceBelievers, -Rev_LoveHasCome, -Rev_ChristianFriends, -Rev_JoytoWorld, -Rev_BeautSav2023, -Rev_LoveJoyComeYou, -Rev_BeThouMyVision) %>% 
+dplyr::select(Timestamp, IntendedMajor, FirstFest, Choir21, Voice21, 5:32, Comment2021, 33:52, 72, 53:54, 76, 55, 56, OrchNoel, DarkAwaitsDawn, RejoiceBelievers, JauchzetFrohlocket, CordeNatus, OMagnumMysterium, HodieChristus23, LoveHasCome, Gloria2023, OgoNiFumOluwa, SummerInWinter, HallelujahNewbornKing, InBleakMidwinter, Winter_Night, LoveJoyComeYou, ChristianFriends, Glorification, WelcomeWonders, JoytoWorld, OHolyNight, BeautSav2023, 77, 64 ) %>%
+  mutate_all(~ifelse(is.na(.), "", .)) 
+}
+```
+Obsolete Centering
+```{text}
+Centered Fest
+(OBSOLETE)
+
+Fest %>%
+  mutate(index = row_number(), 
+         student_avg = mean) %>%
+  pivot_longer(cols = c(6:33, 37:57, 61:80), names_to = "Song", values_to = "Rating") %>%
+  left_join(SongVariables) %>%
+  dplyr::select(index, Song, Rating, Year, 3:5, 7:8, 10:11, 18:22, IntendedMajor, Timestamp, Comment2021, Comment2022, Comment2023, FEEDBACK) %>%
+mutate(Rating = as.numeric(Rating, na.rm = TRUE)) %>%
+  filter(Rating >= 0)
+```
+
+
+

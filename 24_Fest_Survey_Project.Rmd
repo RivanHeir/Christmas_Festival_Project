@@ -1,0 +1,592 @@
+```{r setup}
+#install.packages("brms")
+#install.packages("rstan")
+knitr::opts_chunk$set(echo = TRUE)
+#library(rstan)
+#library(brms)
+library(tidyverse)
+library(lme4)
+```
+
+```{r Fest 24 Cleaning Code}
+
+#Fest Clean Code
+SongVariables <- read.csv("~/Fest_Survey_Project/SongVariables-tent.csv") %>% dplyr::select(2:10) %>% filter(row_number() > 1)
+SongVariables %>% view()
+
+SongVariables24 <- read.csv("~/Fest_Survey_Project/SongVariables24.csv") %>% dplyr::select(2:11) %>% filter(row_number() > 1)
+SongVariables24 %>% view()
+
+Fest24 <- read.csv("~/Fest_Survey_Project/24Fest_Responses-Xmas_Break.csv")
+Fest24 %>% view()
+
+
+grade_mapping <- c('S+' = 6, 'S' = 5, 'A' = 4, 'B' = 3, 'C' = 2, 'D' = 1, 'F' = 0)
+FestClean <- function(data) 
+  {data %>% 
+  mutate_all(~ifelse(. %in% names(grade_mapping), grade_mapping[.], .)) %>%
+  rename(FirstFest = 2, 
+         Choir21 = 3,
+         Voice21 = 4, 
+         Nimrod = 5, 
+         DeepUnboundedDarkness = 6, 
+         CarolAdvent = 7, 
+         GodisLove = 8,
+         MountofOlives = 9, 
+         Rachmoninov = 10,
+         LoHowARose = 11,
+         LlegaNavidad = 12, 
+         HolyChild = 13,
+         SilentNight = 14,
+         GodsLoveMadeVisible = 15, 
+         GoodChristianFriendsRejoice = 16, 
+         ChristusNatusEst = 17, 
+         TellOnMountain = 18,
+         LoveCameDown = 19, 
+         GodRestMerryGentlemen = 20,
+         InSilentNight = 21, 
+         MaryBoyChile = 22, 
+         Gloria2021 = 23, 
+         Past3Clock = 24, 
+         AngelsDance = 25, 
+         CarolForChoirs = 26,
+         AngelHeardHigh = 27, 
+         PraiseLord = 28,
+         LightDawns = 29,
+         LoveDivine = 30,
+         NuncDimittis = 31,
+         BeautSav2021 = 32,
+         Choir22 = 33,
+         Voice22 = 34,
+         OrchNoel = 35, 
+         HeartWorships = 36,
+         AwakeGreetMorn = 37,
+         AwakeHarp = 38,
+         SongofPeace = 39, 
+         KeepYourLamps = 40,
+         WillMakeWay = 41, 
+         DayPeace12 = 42,
+         EarthStrikeMusic = 43,
+         HodieChristus22 = 44,
+         LittleLightMine = 45,
+         CarolBells = 46,
+         SirChristemas = 47,
+         OvertureNutcracker = 48,
+         CarolofStranger = 49,
+         MidnightClear = 50, 
+         Psalm50 = 51, 
+         DonaNobisPacem = 52,
+         HarkHeraldAngels = 72,
+         StayWithUs = 53,
+         BeautSav2022 = 54,
+         Choir23 = 55,
+         Voice23 = 56,
+         Glorification = 57,
+         OHolyNight = 58,
+         DarkAwaitsDawn = 59,
+         JauchzetFrohlocket = 60,
+         InBleakMidwinter = 61,
+         LoveJoyComeYou = 62,
+         WelcomeWonders = 63,
+         FEEDBACK = 64,
+         HodieChristus23 = 65,
+         OMagnumMysterium = 66,
+         BeautSav2023 = 67,
+         RejoiceBelievers = 68,
+         LoveHasCome = 69,
+         ChristianFriends = 70,
+         JoytoWorld = 71,
+         IntendedMajor = 73, 
+         Score = 74,
+         Comment2021 = 75, 
+         Comment2022 = 76, 
+         Comment2023 = 77,
+         Gloria2023 = 78,
+         SummerInWinter = 79, 
+         CordeNatus = 80,
+         HallelujahNewbornKing = 81,
+         Rev_HodieChristus23 = 82,
+         Rev_Gloria2023 = 83,
+         Rev_SummerInWinter = 84,
+         Rev_CordeNatus = 85, 
+         Rev_HallelujahNewbornKing = 86,
+         BeThouMyVision = 87,
+         Rev_RejoiceBelievers = 88,
+         Rev_LoveHasCome = 89,
+         Rev_ChristianFriends = 90,
+         Rev_JoytoWorld = 91,
+         Rev_BeautSav2023 = 92,
+         OgoNiFumOluwa = 93,
+         Rev_LoveJoyComeYou = 94,
+         Rev_BeThouMyVision = 95,
+         Orch_LoHowARose = 96,
+         Winter_Night = 97) %>%
+  mutate(HodieChristus23 = ifelse(as.numeric(!is.na(HodieChristus23)), HodieChristus23, Rev_HodieChristus23), 
+          Gloria2023= ifelse(!is.na(as.numeric(Gloria2023)), Gloria2023, Rev_Gloria2023),
+         SummerInWinter = ifelse(!is.na(as.numeric(SummerInWinter)), SummerInWinter, Rev_SummerInWinter),
+         CordeNatus = ifelse(!is.na(as.numeric(CordeNatus)), CordeNatus, Rev_CordeNatus),
+          HallelujahNewbornKing= ifelse(!is.na(as.numeric(HallelujahNewbornKing)), HallelujahNewbornKing, Rev_HallelujahNewbornKing),
+          RejoiceBelievers= ifelse(!is.na(as.numeric(RejoiceBelievers)), RejoiceBelievers, Rev_RejoiceBelievers),
+         LoveHasCome= ifelse(!is.na(as.numeric(LoveHasCome)), LoveHasCome, Rev_LoveHasCome),
+         ChristianFriends= ifelse(!is.na(as.numeric(ChristianFriends)), ChristianFriends, Rev_ChristianFriends),
+         JoytoWorld= ifelse(!is.na(as.numeric(JoytoWorld)), JoytoWorld, Rev_JoytoWorld),
+         BeautSav2023= ifelse(!is.na(as.numeric(BeautSav2023)), BeautSav2023, Rev_BeautSav2023),
+         LoveJoyComeYou= ifelse(!is.na(as.numeric(LoveJoyComeYou)), LoveJoyComeYou, Rev_LoveJoyComeYou),
+         BeThouMyVision= ifelse(!is.na(as.numeric(BeThouMyVision)), BeThouMyVision, Rev_BeThouMyVision)) %>%
+  dplyr::select( -Rev_HodieChristus23, -Rev_Gloria2023, -Rev_SummerInWinter, -Rev_CordeNatus,
+         -Rev_HallelujahNewbornKing, -Rev_RejoiceBelievers, -Rev_LoveHasCome, -Rev_ChristianFriends, -Rev_JoytoWorld, -Rev_BeautSav2023, -Rev_LoveJoyComeYou, -Rev_BeThouMyVision) %>% 
+dplyr::select(Timestamp, IntendedMajor, FirstFest, Choir21, Voice21, 5:32, Comment2021, 33:52, 72, 53:54, 76, 55, 56, OrchNoel, DarkAwaitsDawn, RejoiceBelievers, JauchzetFrohlocket, CordeNatus, OMagnumMysterium, HodieChristus23, LoveHasCome, Gloria2023, OgoNiFumOluwa, SummerInWinter, HallelujahNewbornKing, InBleakMidwinter, Winter_Night, LoveJoyComeYou, ChristianFriends, Glorification, WelcomeWonders, JoytoWorld, OHolyNight, BeautSav2023, 77, 64 ) %>%
+  mutate_all(~ifelse(is.na(.), "", .)) 
+}
+
+FestClean24 <- function(data) 
+  {data %>% 
+  mutate_all(~ifelse(. %in% names(grade_mapping), grade_mapping[.], .)) %>%
+  rename(FirstFest = 2, 
+         Choir21 = 3,
+         Voice21 = 4, 
+         Nimrod = 5, 
+         DeepUnboundedDarkness = 6, 
+         CarolAdvent = 7, 
+         GodisLove = 8,
+         MountofOlives = 9, 
+         Rachmoninov = 10,
+         LoHowARose = 11,
+         LlegaNavidad = 12, 
+         HolyChild = 13,
+         SilentNight = 14,
+         GodsLoveMadeVisible = 15, 
+         GoodChristianFriendsRejoice = 16, 
+         ChristusNatusEst = 17, 
+         TellOnMountain = 18,
+         LoveCameDown = 19, 
+         GodRestMerryGentlemen = 20,
+         InSilentNight = 21, 
+         MaryBoyChile = 22, 
+         Gloria2021 = 23, 
+         Past3Clock = 24, 
+         AngelsDance = 25, 
+         CarolForChoirs = 26,
+         AngelHeardHigh = 27, 
+         PraiseLord = 28,
+         LightDawns = 29,
+         LoveDivine = 30,
+         NuncDimittis = 31,
+         BeautSav2021 = 32,
+         Choir22 = 33,
+         Voice22 = 34,
+         OrchNoel = 35, 
+         HeartWorships = 36,
+         AwakeGreetMorn = 37,
+         AwakeHarp = 38,
+         SongofPeace = 39, 
+         KeepYourLamps = 40,
+         WillMakeWay = 41, 
+         DayPeace12 = 42,
+         EarthStrikeMusic = 43,
+         HodieChristus22 = 44,
+         LittleLightMine = 45,
+         CarolBells = 46,
+         SirChristemas = 47,
+         OvertureNutcracker22 = 48,
+         CarolofStranger = 49,
+         MidnightClear = 50, 
+         Psalm50 = 51, 
+         DonaNobisPacem = 52,
+         HarkHeraldAngels = 72,
+         StayWithUs = 53,
+         BeautSav2022 = 54,
+         Choir23 = 55,
+         Voice23 = 56,
+         Glorification = 57,
+         OHolyNight23 = 58,
+         DarkAwaitsDawn = 59,
+         JauchzetFrohlocket = 60,
+         InBleakMidwinter = 61,
+         LoveJoyComeYou = 62,
+         WelcomeWonders = 63,
+         FEEDBACK = 64,
+         HodieChristus23 = 65,
+         OMagnumMysterium = 66,
+         BeautSav2023 = 67,
+         RejoiceBelievers = 68,
+         LoveHasCome = 69,
+         ChristianFriends = 70,
+         JoytoWorld = 71,
+         #HarkHeraldAngels is #72, written above
+         IntendedMajor = 73, 
+         Score = 74,
+         Comment2021 = 75, 
+         Comment2022 = 76, 
+         Comment2023 = 77,
+         Gloria2023 = 78,
+         SummerInWinter = 79, 
+         CordeNatus = 80,
+         HallelujahNewbornKing = 81,
+         Rev_HodieChristus23 = 82,
+         Rev_Gloria2023 = 83,
+         Rev_SummerInWinter = 84,
+         Rev_CordeNatus = 85, 
+         Rev_HallelujahNewbornKing = 86,
+         BeThouMyVision = 87,
+         Rev_RejoiceBelievers = 88,
+         Rev_LoveHasCome = 89,
+         Rev_ChristianFriends = 90,
+         Rev_JoytoWorld = 91,
+         Rev_BeautSav2023 = 92,
+         OgoNiFumOluwa = 93,
+         Rev_LoveJoyComeYou = 94,
+         Rev_BeThouMyVision = 95,
+         Orch_LoHowARose = 96,
+         Winter_Night = 97,
+         SurveyLastYear = 98,
+         #Empty column 99
+         Choir24 = 100,
+         Comment2024 = 101,
+         LullChelRose = 102, 
+         ClimbTopMount = 103,
+         HarkThrill = 104,
+         LiftUpHeads = 105,
+         SingNowellGloria = 106,
+         #Null column for Be Thou My Vision, 107
+         EitBarnFodt = 108,
+         AngelHeard24 = 109,
+         SingNowXMas = 110,
+         SleepJesusSleep = 111,
+         OLittleTown = 112,
+         DingDongMerry = 113,
+         Gloria24 = 114,
+         BurtCarols = 115,
+         JegErSaGlad = 116,
+         DayFullGrace = 117,
+         WindsHope = 118,
+         GodHelpAgesPast = 119,
+         OHolyNight24 = 120,
+         #Empty column 121
+         Voice24 = 122,
+         BeautSav2024 = 123,
+         FirstNoel = 124,
+         OvertureNutcracker24 = 125) %>%
+  mutate(HodieChristus23 = ifelse(as.numeric(!is.na(HodieChristus23)), HodieChristus23, Rev_HodieChristus23), 
+          Gloria2023= ifelse(!is.na(as.numeric(Gloria2023)), Gloria2023, Rev_Gloria2023),
+         SummerInWinter = ifelse(!is.na(as.numeric(SummerInWinter)), SummerInWinter, Rev_SummerInWinter),
+         CordeNatus = ifelse(!is.na(as.numeric(CordeNatus)), CordeNatus, Rev_CordeNatus),
+          HallelujahNewbornKing= ifelse(!is.na(as.numeric(HallelujahNewbornKing)), HallelujahNewbornKing, Rev_HallelujahNewbornKing),
+          RejoiceBelievers= ifelse(!is.na(as.numeric(RejoiceBelievers)), RejoiceBelievers, Rev_RejoiceBelievers),
+         LoveHasCome= ifelse(!is.na(as.numeric(LoveHasCome)), LoveHasCome, Rev_LoveHasCome),
+         ChristianFriends= ifelse(!is.na(as.numeric(ChristianFriends)), ChristianFriends, Rev_ChristianFriends),
+         JoytoWorld= ifelse(!is.na(as.numeric(JoytoWorld)), JoytoWorld, Rev_JoytoWorld),
+         BeautSav2023= ifelse(!is.na(as.numeric(BeautSav2023)), BeautSav2023, Rev_BeautSav2023),
+         LoveJoyComeYou= ifelse(!is.na(as.numeric(LoveJoyComeYou)), LoveJoyComeYou, Rev_LoveJoyComeYou),
+         BeThouMyVision= ifelse(!is.na(as.numeric(BeThouMyVision)), BeThouMyVision, Rev_BeThouMyVision)) %>%
+  dplyr::select( -Rev_HodieChristus23, -Rev_Gloria2023, -Rev_SummerInWinter, -Rev_CordeNatus,
+         -Rev_HallelujahNewbornKing, -Rev_RejoiceBelievers, -Rev_LoveHasCome, -Rev_ChristianFriends, -Rev_JoytoWorld, -Rev_BeautSav2023, -Rev_LoveJoyComeYou, -Rev_BeThouMyVision) %>% 
+dplyr::select(Timestamp, IntendedMajor, FirstFest, Choir21, Voice21, 5:32, Comment2021, 33:52, 72, 53:54, 76, 55, 56, OrchNoel, DarkAwaitsDawn, RejoiceBelievers, JauchzetFrohlocket, CordeNatus, OMagnumMysterium, HodieChristus23, LoveHasCome, Gloria2023, OgoNiFumOluwa, SummerInWinter, HallelujahNewbornKing, InBleakMidwinter, Winter_Night, LoveJoyComeYou, ChristianFriends, Glorification, WelcomeWonders, JoytoWorld, OHolyNight23, BeautSav2023, 77, 64, 78:113) %>%
+  mutate_all(~ifelse(is.na(.), "", .)) 
+}
+
+
+
+colnames(Fest24 %>% FestClean24()) %>% as_tibble() %>% view()
+
+Full_Fest24 <-Fest24 %>% FestClean24() %>%
+  mutate(index = row_number()) %>%
+  pivot_longer(cols = c(6:33, 37:57, 61:80, 83:84, 89:107, 110:112), names_to = "Song", values_to = "Rating") %>%
+  left_join(SongVariables24) %>%
+  dplyr::select(index, Song, Rating, Year, 3:5, 7:8, 10:11, 16, 19, 24:28, Underrepresented, IntendedMajor, StOlafComposer, SongPlacement, Timestamp, SurveyLastYear, Comment2021, Comment2022, Comment2023, Comment2024, FEEDBACK) %>%
+mutate(Rating = as.numeric(Rating, na.rm = TRUE),
+       SoloEnsemble = dplyr::recode(SoloEnsemble,
+  "CAN" = "Cantorei",
+  "MNT" = "Manitou Singers",
+  "VIK" = "Viking Chorus",
+  "CHA" = "Chapel Choir",
+  "OLE"  = "St. Olaf Choir",
+  "ORCH" = "St. Olaf Orchestra"
+),
+       SoloChoir= ifelse(
+  is.na(SoloEnsemble), 
+  "", 
+  as.integer(
+    (Year == 21 & SoloEnsemble == Choir21) |
+    (Year == 22 & SoloEnsemble == Choir22) |
+    (Year == 23 & SoloEnsemble == Choir23) | 
+     (Year == 24 & SoloEnsemble == Choir24)
+  )
+),
+EnsembleConductor = as.integer(
+  (Conductor == "JBOBB" & ((Choir21 == "Cantorei" & Year == 21) |
+                            (Choir22 == "Cantorei" & Year == 22) |
+                            (Choir23 == "Cantorei" & Year == 23) |
+                             (Choir24 == "Cantorei" & Year == 24))) |
+  
+  (Conductor == "ANTON" & ((Choir21 == "St. Olaf Choir" & Year == 21) |
+                            (Choir22 == "St. Olaf Choir" & Year == 22) |
+                            (Choir23 == "St. Olaf Choir" & Year == 23) |
+                             (Choir23 == "St. Olaf Choir" & Year == 24))) |
+  
+  (Conductor == "THEREES" & ((Choir21 == "Manitou Singers" & Year == 21) |
+                             (Choir22 == "Manitou Singers" & Year == 22) |
+                             (Choir23 == "Manitou Singers" & Year == 23) |
+                            (Choir24 == "Manitou Singers" & Year == 24))) |
+  
+  ((Conductor == "TESFA" | Conductor == "ADAM") & 
+    ((Choir21 == "Chapel Choir" & Year == 21) |
+     (Choir22 == "Chapel Choir" & Year == 22) |
+     (Choir23 == "Chapel Choir" & Year == 23) |
+    (Choir24 == "Chapel Choir" & Year == 24) |
+     (Choir21 == "Viking Chorus" & Year == 21) |
+     (Choir22 == "Viking Chorus" & Year == 22) |
+     (Choir23 == "Viking Chorus" & Year == 23) |
+    (Choir24 == "Viking Chorus" & Year == 24))) |
+  
+  ((Conductor == "SMA" | Conductor == "PARK") & 
+    ((Choir21 == "St. Olaf Orchestra" & Year == 21) |
+     (Choir22 == "St. Olaf Orchestra" & Year == 22) |
+     (Choir23 == "St. Olaf Orchestra" & Year == 23) |
+     (Choir24 == "St. Olaf Orchestra" & Year == 24)))
+), 
+         ChoirYear = case_when(
+  Year == 21 ~ Choir21,
+  Year == 22 ~ Choir22,
+  Year == 23 ~ Choir23,
+  Year == 24 ~ Choir24,
+  TRUE ~ NA_character_
+),
+VoiceYear = case_when(
+  Year == 21 ~ Voice21,
+  Year == 22 ~ Voice22,
+  Year == 23 ~ Voice23,
+  Year == 24 ~ Voice24,
+  TRUE ~ NA_character_
+),
+SongPlacement = ifelse(SongPlacement != "", SongPlacement, SoloEnsemble),
+CenteredYear = Year - 21,
+Person = index) %>%
+  filter(Rating >= 0)
+
+Fest <- read.csv("~/Fest_Survey_Project/Fest151.csv") %>% FestClean()
+
+Full_Fest <-Fest %>%
+  mutate(index = row_number()) %>%
+  pivot_longer(cols = c(6:33, 37:57, 61:80), names_to = "Song", values_to = "Rating") %>%
+  left_join(SongVariables) %>%
+  dplyr::select(index, Song, Rating, Year, 3:5, 7:8, 10:11, 18:22, Underrepresented, IntendedMajor, StOlafComposer, Timestamp, Comment2021, Comment2022, Comment2023, FEEDBACK) %>%
+mutate(Rating = as.numeric(Rating, na.rm = TRUE),
+       SoloEnsemble = dplyr::recode(SoloEnsemble,
+  "CAN" = "Cantorei",
+  "MNT" = "Manitou Singers",
+  "VIK" = "Viking Chorus",
+  "CHA" = "Chapel Choir",
+  "OLE"  = "St. Olaf Choir",
+  "ORCH" = "St. Olaf Orchestra"
+),
+       SoloChoir = ifelse(Year == 21, SoloEnsemble == Choir21 & SoloEnsemble != "", 
+                   ifelse(Year == 22, SoloEnsemble == Choir22 & SoloEnsemble != "", 
+                          ifelse(Year == 23, SoloEnsemble == Choir23 & SoloEnsemble != "", ""))),
+EnsembleConductor = ifelse( (Conductor == "JBOBB" & ((Choir21 == "Cantorei" & Year == 21) |
+                                                              (Choir22 == "Cantorei" & Year == 22) |
+                                                              (Choir23 == "Cantorei" & Year == 23))) | 
+                                      (Conductor == "ANTON" & ((Choir21 == "St. Olaf Choir" & Year == 21) |
+                                                              (Choir22 == "St. Olaf Choir" & Year == 22) |
+                                                              (Choir23 == "St. Olaf Choir")) & Year == 23) |
+                                       (Conductor == "THEREES" & ((Choir21 == "Manitou Singers" & Year == 21) |
+                                                              (Choir22 == "Manitou Singers" & Year == 22) |
+                                                              (Choir23 == "Manitou Singers" & Year == 23))) |
+                                       ((Conductor == "TESFA" | Conductor == "ADAM") & 
+                                                              ((Choir21 == "Chapel Choir" & Year == 21) |
+                                                              (Choir22 == "Chapel Choir" & Year == 22) |
+                                                              (Choir23 == "Chapel Choir" & Year == 23) | 
+                                                              (Choir21 == "Viking Chorus" & Year == 21) |
+                                                              (Choir22 == "Viking Chorus" & Year == 22) |
+                                                              (Choir23 == "Viking Chorus" & Year == 23))) |
+                                       ((Conductor == "SMA" | Conductor == "PARK") & 
+                                                              ((Choir21 == "St. Olaf Orchestra" & Year == 21) |
+                                                              (Choir22 == "St. Olaf Orchestra"  & Year == 22)|
+                                                              (Choir23 == "St. Olaf Orchestra" & Year == 23))), 1, 0), 
+         ChoirYear = ifelse(Year == 21, Choir21, ifelse(
+                            Year == 22, Choir22, ifelse(
+                            Year == 23, Choir23, NA
+                            ))), 
+           VoiceYear = ifelse(Year == 21, Voice21, ifelse(
+                            Year == 22, Voice22, ifelse(
+                            Year == 23, Voice23, NA
+                            )))) %>%
+  filter(Rating >= 0)
+
+MusicColors <- c("Chapel Choir" = "#A60A3D", "Viking Chorus" = "#0000cd", "Manitou Singers" = "#3c824e", "Cantorei" = "#E2DFD2", "St. Olaf Choir" = "34B006E", "St. Olaf Orchestra" = "#ae7305")
+
+
+Full_Fest %>% view() 
+```
+
+```{r}
+Full_Fest24 %>% filter(Person == 2) %>% select(Song, Rating, Year) %>% arrange(desc(Rating)) %>% view()
+
+Full_Fest24 %>% group_by(Song) %>% summarise(Year = mean(Year), meanRating = round(mean(Rating), 4), NumberResponses = n()) %>% arrange(desc(meanRating)) %>% view()
+```
+
+
+```{r}
+Full_Fest24 %>% group_by(Song, Year, SongCategory) %>% summarise(MeanRating = mean(Rating)) %>% arrange(desc(MeanRating)) %>% view()
+
+Full_Fest24 %>% filter(SongCategory == "HYMN") %>% group_by(StOlafComposer) %>% summarise(MeanRating = mean(Rating), sd = sd(Rating), n = n())
+
+
+options(digits = 4)
+Cleaned_Fest24 <- Full_Fest24 %>% filter(Song != "BeThouMyVision")
+#Year Summary
+Cleaned_Fest24 %>% group_by(Year) %>% summarise(meanRating = round(mean(Rating), 4), sd = sd(Rating), n = n()) %>% arrange(desc(meanRating))
+
+#Year Summary-- centered
+Cleaned_Fest24 %>% group_by(index) %>% mutate(CenterRating = Rating - mean(Rating)) %>% ungroup()%>% group_by(Year) %>% summarise(meanRating = round(mean(Rating), 4), meanCenterRating = mean(CenterRating), sdCR = sd(CenterRating), n = n()) %>% arrange(desc(meanCenterRating))
+
+t.test(rnorm(1527, mean = 0.101288207, sd = 1.381984), 
+       rnorm(2994, mean = -0.003443914, sd = 1.339078))$p.value
+
+#Year Summary minus Hymns
+Cleaned_Fest24 %>% group_by(Year) %>% filter(SongCategory != "HYMN") %>% summarise(meanRating = round(mean(Rating), 4), sd = sd(Rating)) %>% arrange(desc(meanRating))
+
+#Year Summary just Hymns
+Cleaned_Fest24 %>% group_by(Year) %>% filter(SongCategory == "HYMN") %>% summarise(meanRating = round(mean(Rating), 4), sd = sd(Rating)) %>% arrange(desc(meanRating))
+
+#Full_Fest24 %>% filter(is.na(Year)) %>% count(Song)
+
+
+
+#Rankings by SongPlacement
+Cleaned_Fest24 %>% group_by(SongPlacement) %>% summarise(meanRating = mean(Rating), n = n()) %>% arrange(desc(meanRating)) %>% view()
+
+
+#Rankings by St. Olaf Composer * Hymn
+Cleaned_Fest24 %>% group_by(StOlafComposer, SongCategory == "HYMN") %>% summarise(meanRating = mean(Rating), sdRating = sd(Rating), n = n()) %>% mutate(mu_min = meanRating - 2 * sdRating / sqrt(n), mu_max = meanRating + 2 * sdRating / sqrt(n)) %>% arrange(desc(meanRating)) %>% view()
+
+Cleaned_Fest24 %>% group_by(Song) %>% summarise(Year = mean(Year), Category = unique(SongCategory)) %>% view()
+
+Cleaned_Fest24 %>% group_by(Song) %>% mutate(isHymn = SongCategory == "HYMN") %>% summarise(Hymn = mean(isHymn), Year = mean(Year)) %>% arrange(desc(Hymn), Year) %>% view()
+
+```
+
+
+# Modelling
+
+We want our model to represent Rating as a function of: Song, Index (Person), ChoirYear, VoiceYear (the choir and voice part of that person in that year), Year, SongCategory (maybe), 
+```{r Modelling}
+install.packages("MuMIn")
+library(MuMIn)
+
+Cleaned_Fest24
+
+model1 <- glmer(Rating ~ CenteredYear + ChoirYear + VoiceYear + (1 | index) + (1 | Song),
+                    family = poisson(link = "log"), data = Cleaned_Fest24)
+model1
+summary(model1)
+
+model1.1 <- lmer(Rating ~ as.factor(Year) + ChoirYear + VoiceYear + (1 | index) + (1 | Song), data = Cleaned_Fest24)
+model1.1
+summary(model1.1)
+
+model1.11 <- lmer(Rating ~  ChoirYear + VoiceYear + (1 | index) + (1 | Song), data = Cleaned_Fest24)
+model1.11
+summary(model1.11)
+
+model1.12 <- lmer(Rating ~ VoiceYear + (1 | index) + (1 | Song), data = Cleaned_Fest24)
+model1.12
+summary(model1.12)
+
+model1.13 <- lmer(Rating ~ VoiceYear + SongCategory + (1 | index) + (1 | Song), data = Cleaned_Fest24)
+model1.13
+summary(model1.13)
+
+anova(model1.12, model1.13)
+
+model1.14 <- lmer(Rating ~ VoiceYear + SongPlacement + SongCategory +  (1 | index) + (1 | Song), data = Cleaned_Fest24)
+model1.14
+summary(model1.14)
+
+anova(model1.13, model1.14)
+
+model1.15 <- lmer(Rating ~ VoiceYear + SongPlacement +  (1 | index) + (1 | Song), data = Cleaned_Fest24)
+model1.15
+summary(model1.15)
+
+model1.16 <- lmer(Rating ~ VoiceYear + SongCategory + FreshChoir + Orchie + (1 | index) + (1 | Song), data = Cleaned_Fest24 %>% mutate(FreshChoir = ChoirYear == "Viking Chorus" | ChoirYear == "Manitou Singers", 
+                                                                                                                                Orchie = ChoirYear == "St. Olaf Orchestra"))
+model1.16
+summary(model1.16)
+
+anova(model1.15, model1.16)
+
+model1.17 <- lmer(Rating ~ VoiceYear + SongCategory + FreshChoir + Orchie + Orchie * SongCategory + (1 | index) + (1 | Song), data = Cleaned_Fest24 %>% mutate(FreshChoir = ChoirYear == "Viking Chorus" | ChoirYear == "Manitou Singers", 
+                                                                                                                                Orchie = ChoirYear == "St. Olaf Orchestra"))
+model1.17
+summary(model1.17)
+
+anova(model1.16, model1.17)
+
+r.squaredGLMM(model1.16)
+r.squaredGLMM(model1.17)
+
+model1.18 <- lmer(Rating ~ VoiceYear + SongCategory + FreshChoir + Orchie + Orchie * SongCategory + ACapella + SoloChoir  + (1 | index) + (1 | Song), data = Cleaned_Fest24 %>% mutate(FreshChoir = ChoirYear == "Viking Chorus" | ChoirYear == "Manitou Singers", 
+                                                                                                                                Orchie = ChoirYear == "St. Olaf Orchestra"))
+model1.18
+summary(model1.18)
+r.squaredGLMM(model1.18)
+Cleaned_Fest24
+```
+
+
+```{r Modelling}
+Cleaned_Fest24 %>%
+  mutate(Rating_transformed = (Rating / 8) + 0.125,
+         Log_Rating = log(Rating_transformed)) %>%
+  lmer(Log_Rating ~ as.factor(Year) + ChoirYear + VoiceYear + (1 | index) + (1 | Song), data = .) -> model1.2
+
+pred_log <- predict(model1.2, newdata = Cleaned_Fest24)
+pred_transformed <- exp(pred_log)
+pred_original <- (pred_transformed - 0.125) * 8
+
+summary(model1.2)
+
+Cleaned_Fest24 %>%
+  mutate(Rating_transformed = (Rating / 8) + 0.125,
+         Log_Rating = log(Rating_transformed)) %>%
+  lmer(Log_Rating ~ as.factor(Year)  + VoiceYear + (1 | index) + (1 | Song), data = .) -> model1.3
+
+summary(model1.3)
+
+Cleaned_Fest24 %>%
+  mutate(Rating_transformed = (Rating / 8) + 0.125,
+         Log_Rating = log(Rating_transformed)) %>%
+  lmer(Log_Rating ~ as.factor(Year)  + VoiceYear + (1 | index) + (1 | Song), data = .) -> model1.4
+
+summary(model1.4)
+r.squaredGLMM(model1.4)
+
+Cleaned_Fest24 %>%
+  mutate(Rating_transformed = (Rating / 8) + 0.125,
+         Log_Rating = log(Rating_transformed)) %>%
+  lmer(Log_Rating ~ as.factor(Year) +  VoiceYear + (1 | index) + (1 | Song) + (1 + VoiceYear | ChoirYear), data = .) -> model1.5
+
+summary(model1.5)
+
+Cleaned_Fest24 %>%
+  mutate(Rating_transformed = (Rating / 8) + 0.125,
+         Log_Rating = log(Rating_transformed)) %>%
+  lmer(Log_Rating ~ as.factor(Year) +  VoiceYear + SongCategory + (1 | index) + (1 | Song), data = .) -> model1.6
+
+summary(model1.6)
+
+
+model2 <-glmer(Rating ~ as.factor(Year) + (1 | ChoirYear) + VoiceYear + (1 | index) + (1 | Song),
+                    family = poisson(link = "log"), data = Cleaned_Fest24)
+
+model2
+summary(model2)
+```
+
+# Modelling 2
+
+```{r}
+
+```
+
