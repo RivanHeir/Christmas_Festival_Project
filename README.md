@@ -1,19 +1,24 @@
 # Christmas_Festival_Project
 Final project for Analyzing Politics class (Fall 2023).
 
-For this assigment, I conducted a survey of fellow St. Olaf Christmas Festival participants, and examined what factors affect the regard in which various songs were held, ranked in "tiers" from "F" to "S+". I came up with several hypotheses and tested each of these. Later, in the fall of 2024, I updated the survey to account for the 2024 Christmas Festival songs, and sent out the survey again. Though I produced updated summaries and charts from this, I did not create another deliverable document. I completed this assignment by myself.
+For this assignment, I conducted a survey of fellow St. Olaf Christmas Festival participants, and examined what factors affect how well a song was liked. This was gauged by having the respondent rank each song into a "tier", from **F** (the lowest) to **S+** (the highest). I came up with several hypotheses and tested each of these, by translating the tier response into an integer scale.
+
+Later, in the fall of 2024, I updated the survey to account for the 2024 Christmas Festival songs, and sent out the survey again. Although I produced updated summaries and charts from this, I did not create another deliverable document. I completed this assignment independently.
 
 ## Deliverable
 
-The deliverable for this project was _Analyzing_Politics_Final_Project.pdf_, created on LaTeX. 
+The deliverable for this project was _Analyzing_Politics_Final_Project.pdf_, created using LaTeX. 
 
 ## Documents Summary
 
-_Fest_Survey_Project.Rmd_ was the main document for all of my work in 2023; the update in 2024 was done on _24_Fest_Survey_Project.Rmd_. 
+- _Fest_Survey_Project.Rmd_ was the main document for all of my work in 2023.
+- _24_Fest_Survey_Project.Rmd_ contains the work I did in the 2024 update.
+- _Fest151.csv_ contains the survey data for the 2023 project.
+- _24Fest_Responses-Xmas_Break.csv_ contains the updated 2024 data.
+- _SongVariables-tent.csv_ contains the hand-compiled metadata about the 2023 songs.
+- _SongVariables24.csv_ contains hand-compiled data about the 2024 songs.
 
-_Fest151.csv_ contains the survey data for the 2023 project; _24Fest_Responses-Xmas_Break.csv_ contains the updated 2024 data.
-
-_SongVariables-tent.csv_ and _SongVariables24.csv_ contain hand-compiled data about the various songs, from 2023 and 2024 respectively. This was joined to the survey data to enable analysis and testing of my hypotheses.
+The song metadata was joined to the survey data to enable analysis and testing of my hypotheses.
 
 ## Packages
 
