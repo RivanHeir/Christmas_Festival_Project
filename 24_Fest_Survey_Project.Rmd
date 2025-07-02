@@ -7,13 +7,13 @@ library(lme4)
 ```{r Fest 24 Cleaning Code}
 
 #Fest Clean Code
-SongVariables <- read.csv("~/Fest_Survey_Project/SongVariables-tent.csv") %>% dplyr::select(2:10) %>% filter(row_number() > 1)
+SongVariables <- read.csv("SongVariables-tent.csv") %>% dplyr::select(2:10) %>% filter(row_number() > 1)
 SongVariables %>% view()
 
 SongVariables24 <- read.csv("~/Fest_Survey_Project/SongVariables24.csv") %>% dplyr::select(2:11) %>% filter(row_number() > 1)
 SongVariables24 %>% view()
 
-Fest24 <- read.csv("~/Fest_Survey_Project/24Fest_Responses-Xmas_Break.csv")
+Fest24 <- read.csv("24Fest_Responses-Xmas_Break.csv")
 Fest24 %>% view()
 
 
