@@ -1,9 +1,5 @@
 ```{r setup}
-#install.packages("brms")
-#install.packages("rstan")
 knitr::opts_chunk$set(echo = TRUE)
-#library(rstan)
-#library(brms)
 library(tidyverse)
 library(lme4)
 ```
@@ -587,6 +583,4 @@ summary(model2)
 # Modelling 2
 
 ```{r}
-
 ```
-
