@@ -7,18 +7,16 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-library(readr)
-library(ggplot2)
 library(dplyr)
 ```
 
 
 ```{r, warning=FALSE, message=FALSE}
-SongVariables <- read.csv("~/Fest_Survey_Project/SongVariables-tent.csv") %>% dplyr::select(2:10) %>% filter(row_number() > 1)
+SongVariables <- read.csv("SongVariables-tent.csv") %>% dplyr::select(2:10) %>% filter(row_number() > 1)
 SongVariables %>% view()
 
 
-Fest <- read.csv("~/Fest_Survey_Project/Fest151.csv") %>% FestClean()
+Fest <- read.csv("Fest151.csv") %>% FestClean()
 
 Full_Fest <-Fest %>%
   mutate(index = row_number()) %>%
