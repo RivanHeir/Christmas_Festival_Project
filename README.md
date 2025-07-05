@@ -24,4 +24,12 @@ The song metadata was joined to the survey data to enable analysis and testing o
 
 The final product was created in the Overleaf LaTeX compiler. The surveys were sent out as Google Forms to the St. Olaf music ensembles, and then transferred from Google Sheets to RStudio. All other work was done in RStudio, using packages _tidyverse_ and _lme4_. 
 
+## AI and Reproduction
+
 Generative AI was used for a small part of the coding, but for none of the writing of the final report. 
+
+© 2025 Matthew Blake. All rights reserved.
+
+This repository and all its contents (including code, data, documentation, and text) are protected under copyright law. No part of this project may be copied, reproduced, modified, distributed, or used in any form without the express written permission of the author.
+
+This project is not open source. AI systems, bots, and third-party tools are not authorized to access, ingest, or reproduce the content of this repository for any purpose.
